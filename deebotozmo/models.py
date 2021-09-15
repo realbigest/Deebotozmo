@@ -77,3 +77,9 @@ class VacuumState(Enum):
     STATE_DOCKED = 4
     STATE_ERROR = 5
     STATE_PAUSED = 6
+
+
+# List of vacbot models which uses XML payload over MQTT instead of JSON
+xml_payload_models = (
+    'DE5G',  # Deebot DE55
+)
