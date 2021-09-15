@@ -121,7 +121,7 @@ class EcovacsAPI:
         api = self.API_PIM_PRODUCT + "/getProductIotMap"
         json = await self.__call_portal_api(api, data)
 
-        if json["code"] == "0000":
+        if json["code"] in ("0000", 0):
             return json["data"]
         else:
             _LOGGER.error(f"call to {api} failed with {json}")
