@@ -6,6 +6,7 @@ from typing import MutableMapping
 from gmqtt import Client
 from gmqtt.mqtt.constants import MQTTv311
 
+from deebotozmo.ecovacs_xml import EcovacsHandleXML
 from deebotozmo.models import Vacuum, RequestAuth
 from deebotozmo.vacuum_bot import VacuumBot
 
@@ -33,20 +34,31 @@ class EcovacsMqtt:
         async def _on_message(client, topic: str, payload: bytes, qos, properties) -> int:
             try:
                 _LOGGER.debug(f"Got message: topic={topic}; payload={payload};")
+
                 topic_split = topic.split("/")
                 if len(topic_split) != 7:
-                    _LOGGER.info(f"Unexpected message, skipping... topic={topic}; payload={payload};")
-                    return _ON_MESSAGE_RETURN_SUCCESS
-                elif topic_split[6] != "j":
-                    _LOGGER.warning(
-                        f"Received message type was not json, skipping... topic={topic}; payload={payload};")
+                    _LOGGER.info(f"Unexpected message, skipping...")
                     return _ON_MESSAGE_RETURN_SUCCESS
 
                 bot = self._subscribers.get(topic_split[3])
-                if bot:
+                if not bot:
+                    _LOGGER.debug(f"No subscribers, skipping...")
+                    return _ON_MESSAGE_RETURN_SUCCESS
+
+                if topic_split[6] != bot.vacuum.payload_type:
+                    _LOGGER.warning(f"Received message has wrong payload type (json/xml), skipping...")
+                    return _ON_MESSAGE_RETURN_SUCCESS
+
+                # Call message handler according to vacbot model payload type
+                if bot.vacuum.payload_type == 'x':  # xml
+                    data = payload.decode()
+                    await EcovacsHandleXML(bot).handle(topic_split[2], data, False)
+                else:  # json
                     data = json.loads(payload)
                     await bot.handle(topic_split[2], data, False)
+
                 return _ON_MESSAGE_RETURN_SUCCESS
+
             except Exception as err:
                 _LOGGER.error("An exception occurred", err, exc_info=True)
 
