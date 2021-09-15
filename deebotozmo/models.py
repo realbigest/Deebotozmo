@@ -37,6 +37,14 @@ class Vacuum(dict):
     def get_class(self):
         return self["class"]
 
+    @property
+    # Set payload type accordingly to vacbot model
+    def payload_type(self):
+        if self["model"] in xml_payload_models:
+            return 'x'  # XML payload
+        else:
+            return 'j'  # JSON payload
+
 
 @dataclass
 class Coordinate:
