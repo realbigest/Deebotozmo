@@ -8,6 +8,7 @@ from deebotozmo.commands import *
 from deebotozmo.constants import ERROR_CODES, FAN_SPEED_FROM_ECOVACS, COMPONENT_FROM_ECOVACS, WATER_LEVEL_FROM_ECOVACS
 from deebotozmo.ecovacs_api import EcovacsAPI
 from deebotozmo.ecovacs_json import EcovacsJSON
+from deebotozmo.ecovacs_xml import EcovacsSendXML, EcovacsHandleXML
 from deebotozmo.events import EventEmitter, ErrorEvent, PollingEventEmitter, LifeSpanEvent, FanSpeedEvent, \
     CleanLogEvent, WaterInfoEvent, BatteryEvent, StatusEvent, StatsEvent, CleanLogEntry
 from deebotozmo.map import Map
@@ -37,12 +38,11 @@ class VacuumBot:
         if country.lower() == "cn":
             portal_url = EcovacsAPI.PORTAL_URL_FORMAT_CN
 
-        self.json: EcovacsJSON = EcovacsJSON(
-            session,
-            auth,
-            portal_url,
-            verify_ssl
-        )
+        # Set sending protocol accordingly to vacbot model payload type
+        if self.vacuum.payload_type == "x":
+            self.gateway: EcovacsSendXML = EcovacsSendXML(session, auth, portal_url, verify_ssl)
+        else:
+            self.gateway: EcovacsJSON = EcovacsJSON(session, auth,  portal_url, verify_ssl)
 
         self.status: StatusEvent = StatusEvent(False, None)
         self.fw_version: Optional[str] = None
@@ -81,9 +81,13 @@ class VacuumBot:
             command = CleanStart()
 
         async with self._semaphore:
-            response = await self.json.send_command(command, self.vacuum)
+            response = await self.gateway.send_command(command, self.vacuum)
 
-        await self.handle(command.name, response)
+        # Call message handler according to vacbot model payload type
+        if self.vacuum.payload_type == 'x':  # xml
+            await EcovacsHandleXML(self).handle(command.name, response)
+        else:  # json
+            await self.handle(command.name, response)
 
     def set_available(self, available: bool):
         status = StatusEvent(available, self.status.state)
